@@ -1,55 +1,28 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/userModel');
+const User = require('../models/userModel')
+const jwt = require('jsonwebtoken')
+require('dotenv').config()
 
-// Register
 const registerUser = async (req, res) => {
-  try {
-    const { username, email, password } = req.body;
-    
-    const existingUser = await User.findOne({ where: { email } });
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email already in use'
-      });
+    const{name,email,password}= req.body
+    try {
+        // const existingUser = findOne({email})
+        // console.log(existingUser);
+        // if(existingUser){
+        //     res.status(202).send({message:"user already exist",success:true})
+        // }
+        const newUser = await User.create({name,email,password});
+        res.status(200).send({ message: 'User registered successfully', success: true, });
+    // } catch (error) {
+    //     res.status(500).send({ error: error});
+    // }
     }
-
-    const user = await User.create({ 
-      username, 
-      email, 
-      password,
-      isAdmin: false
-    });
-
-    const token = jwt.sign(
-      { id: user.id, isAdmin: user.isAdmin },
-      process.env.JWT_SECRET,
-      { expiresIn: '2d' }
-    );
-
-    res.status(201).json({
-      success: true,
-      message: "Registration successful",
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        isAdmin: user.isAdmin
-      }
-    });
-
-  } catch (error) {
-    res.status(500).json({ 
-      success: false,
-      message: "Registration failed",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
+    catch (error) {
+    console.error("Registration error:", error); // full error log
+    res.status(500).send({ success: false, message: "Server error", error: error.message });
+}
 };
-
 // Login
-const login = async (req, res) => {
+const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -88,34 +61,192 @@ const login = async (req, res) => {
     });
   }
 };
+// const loginUser = async (req, res) => {
+//       const { email, password } = req.body;
+//     try {
+//         const loggedInUser = await User.findOne({ where: { email:req.body.email, password:req.body.password },attributes: ['id','isAdmin']})
+        
+//         // console.log(loggedInUser, "login user");
+//         const user = loggedInUser.dataValues
+//         console.log(user,"user data ***")
+//         const token = jwt.sign(user,process.env.SECRET_KEY,{expiresIn:'2d'})
+//         console.log(token,"Token ")
+//         res.status(202).send({message:"user login successfully",success:true,token:token})
 
-// Get user info
+//     } catch (error) {
+//         console.error("error:", error);
+        
+//     }
+// };
+
+// const getUserInfo = async(req,res) =>{
+//     console.log("req.user")
+
+//     try{
+//         loggedUser = await user.findOne({where:{id:req.user.id},attributes:['id','name','email','isAdmin']})
+//         res.status(200).send({message:"got user info",loggedUser:loggedUser})
+
+//     }catch(error){
+//         res.status(500).send({error:error})
+        
+//     }
+
+// }
+
+
 const getUserInfo = async (req, res) => {
-  try {
-    const user = req.user;
+    console.log("req.user", req.user); // Added req.user to the log
 
-    res.json({
-      success: true,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        isAdmin: user.isAdmin,
-        createdAt: user.createdAt
-      }
-    });
+    try {
+        const loggedUser = await User.findOne({
+            where: { id: req.user.id },
+            attributes: ['id', 'name', 'email', 'isAdmin']
+        });
 
-  } catch (error) {
-    res.status(500).json({ 
-      success: false,
-      message: "Failed to get user information",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
+        if (!loggedUser) {
+            return res.status(404).send({ message: "User not found" });
+        }
+
+        return res.status(200).send({ 
+            message: "Got user info",
+            loggedUser: loggedUser 
+        });
+
+    } catch (error) {
+        console.error("Error in getUserInfo:", error); // Better error logging
+        return res.status(500).send({ 
+            error: "Internal server error",
+            details: error.message 
+        });
+    }
 };
 
-module.exports = { 
-  registerUser, 
-  login,
-  getUserInfo
-};
+
+
+module.exports ={
+    registerUser,
+    loginUser,
+    getUserInfo
+    
+}
+// const jwt = require('jsonwebtoken');
+// const User = require('../models/userModel');
+
+// // Register
+// const registerUser = async (req, res) => {
+//   try {
+//     const { username, email, password } = req.body;
+    
+//     const existingUser = await User.findOne({ where: { email } });
+//     if (existingUser) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Email already in use'
+//       });
+//     }
+
+//     const user = await User.create({ 
+//       username, 
+//       email, 
+//       password,
+//       isAdmin: false
+//     });
+
+//     const token = jwt.sign(
+//       { id: user.id, isAdmin: user.isAdmin },
+//       process.env.JWT_SECRET,
+//       { expiresIn: '2d' }
+//     );
+
+//     res.status(201).json({
+//       success: true,
+//       message: "Registration successful",
+//       token,
+//       user: {
+//         id: user.id,
+//         username: user.username,
+//         email: user.email,
+//         isAdmin: user.isAdmin
+//       }
+//     });
+
+//   } catch (error) {
+//     res.status(500).json({ 
+//       success: false,
+//       message: "Registration failed",
+//       error: process.env.NODE_ENV === 'development' ? error.message : undefined
+//     });
+//   }
+// };
+
+// // Login
+// const login = async (req, res) => {
+//   try {
+//     const { email, password } = req.body;
+
+//     const user = await User.scope('withPassword').findOne({ where: { email } });
+    
+//     if (!user || user.password !== password) {
+//       return res.status(401).json({ 
+//         success: false,
+//         message: "Invalid credentials" 
+//       });
+//     }
+
+//     const token = jwt.sign(
+//       { id: user.id, isAdmin: user.isAdmin },
+//       process.env.JWT_SECRET,
+//       { expiresIn: '2d' }
+//     );
+
+//     res.json({
+//       success: true,
+//       message: "Login successful",
+//       token,
+//       user: {
+//         id: user.id,
+//         username: user.username,
+//         email: user.email,
+//         isAdmin: user.isAdmin
+//       }
+//     });
+
+//   } catch (error) {
+//     res.status(500).json({ 
+//       success: false,
+//       message: "Login failed",
+//       error: process.env.NODE_ENV === 'development' ? error.message : undefined
+//     });
+//   }
+// };
+
+// // Get user info
+// const getUserInfo = async (req, res) => {
+//   try {
+//     const user = req.user;
+
+//     res.json({
+//       success: true,
+//       user: {
+//         id: user.id,
+//         username: user.username,
+//         email: user.email,
+//         isAdmin: user.isAdmin,
+//         createdAt: user.createdAt
+//       }
+//     });
+
+//   } catch (error) {
+//     res.status(500).json({ 
+//       success: false,
+//       message: "Failed to get user information",
+//       error: process.env.NODE_ENV === 'development' ? error.message : undefined
+//     });
+//   }
+// };
+
+// module.exports = { 
+//   registerUser, 
+//   login,
+//   getUserInfo
+// };
