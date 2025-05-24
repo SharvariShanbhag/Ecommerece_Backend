@@ -1,14 +1,24 @@
+// const express = require('express');
+// const cors = require('cors');
+// require('dotenv').config(); 
+// require('./config/db')
+
+
+// const brandRoute = require('./routes/brandRoute')
+// const categoryRoute = require('./routes/categoryRoute')
+// const productRoute= require('./routes/productRoute')
+// const userRoute = require('./routes/userRoute')
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config(); 
-require('./config/db')
+require('./config/db');
 
 
-const brandRoute = require('./routes/brandRoute')
-const categoryRoute = require('./routes/categoryRoute')
-const productRoute= require('./routes/productRoute')
-const userRoute = require('./routes/userRoute')
-
+// Route imports
+const brandRoute = require('./routes/brandRoute');
+const categoryRoute = require('./routes/categoryRoute');
+const productRoute = require('./routes/productRoute');
+const userRoute = require('./routes/userRoute');
 
 const app = express();
 
@@ -27,6 +37,12 @@ console.log(port)
 app.listen(port, ()=>{
     console.log(`server started on http://localhost:${port}`)
 })
+
+
+
+
+
+
 
 // const express = require('express')
 // const cors = require('cors')
