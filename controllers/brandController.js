@@ -1,158 +1,151 @@
-const Brand = require('../models/brandModel');
+const Brand = require('../models/brandModel'); // Import your Sequelize Brand model
+const path = require('path');
+const fs = require('fs'); // For file system operations (deleting old image)
 
-const createBrand = async (req, res) => {
-    const { name } = req.body;
-    try {
-        if(!req.user.isAdmin){
-             res.status(401).send({ message: 'Not Authorized' });
-        }
-        const newBrand = await Brand.create({ name });
-         res.status(200).send({ message: 'Brand Created Successfully',brand:newBrand, success: true });
-    } 
-    
-    catch (error) {
-        res.status(500).send({ error: error.message });
+// Base directory for uploads (must match multer config)
+const UPLOADS_DIR = path.join(__dirname, '../uploads');
+
+// Helper to delete a file
+const deleteFile = (filename) => {
+    if (filename) {
+        const filePath = path.join(UPLOADS_DIR, filename);
+        fs.unlink(filePath, (err) => {
+            if (err) console.error(`Failed to delete old file: ${filePath}`, err);
+            else console.log(`Old file deleted: ${filePath}`);
+        });
     }
 };
 
-const getAllBrands = async (req, res) => {
+// @desc    Create a new Brand
+// @route   POST /api/brand/create
+// @access  Private (auth required)
+exports.createBrand = async (req, res) => {
+    try {
+        const { name, description } = req.body;
+        const imageFilename = req.file ? req.file.filename : null;
+
+        if (!name) {
+            if (imageFilename) deleteFile(imageFilename);
+            return res.status(400).json({ message: 'Brand name is required.' });
+        }
+
+        const brand = await Brand.create({
+            name,
+            description,
+            image: imageFilename
+        });
+
+        res.status(201).json({ message: 'Brand created successfully', brand });
+
+    } catch (error) {
+        console.error('Error creating brand:', error);
+        if (req.file && req.file.filename) { // Clean up uploaded file on server error
+            deleteFile(req.file.filename);
+        }
+        res.status(500).json({ message: 'Server error creating brand.', error: error.message });
+    }
+};
+
+// @desc    Get all Brands
+// @route   GET /api/brand/getAllBrands
+// @access  Public
+exports.getAllBrands = async (req, res) => {
     try {
         const brands = await Brand.findAll();
-        res.status(200).send({ brands: brands, success: true });
+        res.status(200).json({ message: 'Brands retrieved successfully', count: brands.length, brands });
     } catch (error) {
-        res.status(500).send({ error: error });
+        console.error('Error fetching brands:', error);
+        res.status(500).json({ message: 'Server error fetching brands.', error: error.message });
     }
 };
 
-const getBrandByID = async (req, res) => {
+// @desc    Get Brand by ID
+// @route   GET /api/brand/getBrandByID/:id
+// @access  Public
+exports.getBrandByID = async (req, res) => {
     try {
-        const brand = await Brand.findByPk(req.params.id);
+        const { id } = req.params;
+        const brand = await Brand.findByPk(id);
+
         if (!brand) {
-            return res.status(404).send({ message: 'Brand not found', success: false });
+            return res.status(404).json({ message: 'Brand not found.' });
         }
-        res.status(200).send({ brand: brand, success: true });
+
+        res.status(200).json({ message: 'Brand retrieved successfully', brand });
     } catch (error) {
-        res.status(500).send({ error: error });
+        console.error('Error fetching brand by ID:', error);
+        res.status(500).json({ message: 'Server error fetching brand.', error: error.message });
     }
 };
-const updateBrand = async (req, res) => {
+
+// @desc    Update Brand
+// @route   PUT /api/brand/updateBrand/:id
+// @access  Private (auth required)
+exports.updateBrand = async (req, res) => {
     try {
-        // Update the brand and get affected row count
-        const [affectedCount] = await Brand.update(req.body, {
-            where: { id: req.params.id }
-        });
+        const { id } = req.params;
+        const { name, description } = req.body;
+        const imageFilename = req.file ? req.file.filename : null; // New image filename if uploaded
 
-        // If no rows were affected, brand doesn't exist
-        if (affectedCount === 0) {
-            return res.status(404).json({ 
-                message: 'Brand not found', 
-                success: false 
-            });
+        const brand = await Brand.findByPk(id);
+
+        if (!brand) {
+            if (imageFilename) deleteFile(imageFilename);
+            return res.status(404).json({ message: 'Brand not found.' });
         }
 
-        // Get and return the updated brand
-        const updatedBrand = await Brand.findByPk(req.params.id);
-        return res.status(200).json({ 
-            brand: updatedBrand, 
-            success: true
-        });
-        
+        const oldImage = brand.image; // Store old image filename before update
+
+        // Update fields if provided
+        brand.name = name !== undefined ? name : brand.name;
+        brand.description = description !== undefined ? description : brand.description;
+        if (imageFilename) { // If a new image was uploaded
+            brand.image = imageFilename;
+        }
+
+        await brand.save();
+
+        // Delete old image only AFTER successful brand update and if a new image was uploaded
+        if (imageFilename && oldImage && oldImage !== imageFilename) {
+            deleteFile(oldImage);
+        }
+
+        res.status(200).json({ message: 'Brand updated successfully', brand });
+
     } catch (error) {
-        console.error('Update error:', error);
-        return res.status(500).json({ 
-            message: 'Server error',
-            error: error.message 
-        });
+        console.error('Error updating brand:', error);
+        if (req.file && req.file.filename) { // Clean up new file on error
+            deleteFile(req.file.filename);
+        }
+        res.status(500).json({ message: 'Server error updating brand.', error: error.message });
     }
 };
 
-const deleteBrand = async (req, res) => {
+// @desc    Delete Brand
+// @route   DELETE /api/brand/deleteBrand/:id
+// @access  Private (auth required)
+exports.deleteBrand = async (req, res) => {
     try {
-        const deleted = await Brand.destroy({
-            where: { id: req.params.id }
-        });
-        if (deleted) {
-            return res.status(200).send({ message: 'Brand deleted', success: true });
+        const { id } = req.params;
+        const brand = await Brand.findByPk(id);
+
+        if (!brand) {
+            return res.status(404).json({ message: 'Brand not found.' });
         }
-        res.status(404).send({ message: 'Brand not found', success: false });
+
+        const deletedImage = brand.image; // Get image filename before deletion
+
+        await brand.destroy(); // Delete brand from database
+
+        // Delete the associated image file after successful database deletion
+        if (deletedImage) {
+            deleteFile(deletedImage);
+        }
+
+        res.status(200).json({ message: 'Brand deleted successfully' });
+
     } catch (error) {
-        res.status(500).send({ error: error });
+        console.error('Error deleting brand:', error);
+        res.status(500).json({ message: 'Server error deleting brand.', error: error.message });
     }
 };
-
-module.exports = {
-    createBrand,
-    deleteBrand,
-    updateBrand,
-    getAllBrands,
-    getBrandByID
-};
-
-
-
-
-
-
-
-
-
-
-// // arrow fun that is why const
-// const Brand =require('../models/brandModel')
-
-
-// const createBrand = async(req,res)=>{
-//     const {name} = req.body
-// try{
-//     const newBrand= await Brand.create({name})
-//         // newBrand.save();
-//     res.status(200).send({message:'Brand Created Succesfully',success:true})
-// }catch(error){
-//     res.status(500).send({error:error})
-// }
-// }
-// //http:localhost:7000/api/brand/create
-
-
-// const getAllBrands = async(req,res)=>{
-// try{
-//     const brands = await Brand.findAll()
-//     res.status(200).send({brands:brands,success:true})
-// }catch(error){
-//     res.status(500).send({error:error})
-// }
-// }
-
-
-// const getBrandByID  =(req,res)=>{
-// try{
-//     res.status(200).send({message:'success'})
-// }catch(error){
-//     res.status(500).send({error:error})
-// }
-// }
-
-
-// const updateBrand =(req,res)=>{
-// try{
-//     res.status(200).send({message:'success'})
-// }catch(error){
-//     res.status(500).send({error:error})
-// }
-// }
-
-// const deleteBrand =(req,res)=>{
-// try{
-//     res.status(200).send({message:'success'})
-// }catch(error){
-//     res.status(500).send({error:error})
-// }
-// }
-
-// module.exports = {
-//     createBrand,
-//     deleteBrand,
-//     updateBrand,
-//     getAllBrands,
-//     getBrandByID
-// }

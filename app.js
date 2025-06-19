@@ -1,76 +1,57 @@
-// const express = require('express');
-// const cors = require('cors');
-// require('dotenv').config(); 
-// require('./config/db')
+   const express = require('express');
+   const app = express();
+   const cors = require('cors');
+   const path = require('path');
+   require('dotenv').config(); // Ensure dotenv is loaded at the very top
 
+   const { sequelize, mongoose } = require('./config/db');
 
-// const brandRoute = require('./routes/brandRoute')
-// const categoryRoute = require('./routes/categoryRoute')
-// const productRoute= require('./routes/productRoute')
-// const userRoute = require('./routes/userRoute')
-const express = require('express');
-const cors = require('cors');
-require('dotenv').config(); 
-require('./config/db');
+   const User = require('./models/userModel');
+   const Brand = require('./models/brandModel');
+   const Category = require('./models/categoryModel');
+   const Product = require('./models/productModel');
 
+   Brand.hasMany(Product, { foreignKey: 'brandId', as: 'Products' });
+   Category.hasMany(Product, { foreignKey: 'categoryId', as: 'Products' });
 
-// Route imports
-const brandRoute = require('./routes/brandRoute');
-const categoryRoute = require('./routes/categoryRoute');
-const productRoute = require('./routes/productRoute');
-const userRoute = require('./routes/userRoute');
+   app.use(express.json());
+   app.use(express.urlencoded({ extended: true }));
+   app.use(cors({
+       origin: ['http://localhost:3000', 'http://localhost:3001'],
+       credentials: true,
+   }));
 
-const app = express();
+   app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-app.use(express.json());
-app.use(cors())
+   const brandRoute = require('./routes/brandRoute');
+   app.use('/api/brand', brandRoute);
 
-const port = process.env.PORT  || 7000
+   const productRoute = require('./routes/productRoute');
+   app.use('/api/product', productRoute);
 
-app.get('/', (req,res) => res.send('Hello World'))
-app.use('/api/brand',brandRoute)
-app.use('/api/product', productRoute)
-app.use('/api/category', categoryRoute )
-app.use('/api/user',userRoute)
+   const categoryRoute = require('./routes/categoryRoute');
+   app.use('/api/category', categoryRoute);
 
-console.log(port)
-app.listen(port, ()=>{
-    console.log(`server started on http://localhost:${port}`)
-})
+   const userRoute = require('./routes/userRoute');
+   app.use('/api/user', userRoute);
 
+   (async () => {
+       try {
+           // *** DANGER: Setting { force: true } will DROP (delete) existing tables and recreate them.
+           // *** This will lead to DATA LOSS in your MySQL database for these models.
+           // *** ONLY USE THIS IN DEVELOPMENT WHEN YOU ARE OK WITH LOSING DATA.
+           // *** AFTER RUNNING ONCE SUCCESSFULLY, CHANGE IT BACK TO { alter: false } OR { force: false }
+           await sequelize.sync({ force: false }); // DANGEROUS TEMPORARY CHANGE HERE
+           console.log('MySQL models synchronized (tables dropped and recreated).');
 
+           const PORT = process.env.PORT || 7001;
+           app.listen(PORT, () => {
+               console.log(`Server running on port ${PORT}`);
+           });
 
-
-
-
-
-// const express = require('express')
-// const cors = require('cors')
-// require('dotenv').config();
-// require('./config/db')
-
-// const brandRoute = require('./routes/brandRoute')
-// const productRoute = require('./routes/productRoute')
-// const categoryRoute = require('./routes/categoryRoute')
-// const userRoute = require('./routes/userRoute')
-
-// const app = express()
-
-// // middleware
-// app.use(express.json());
-// app.use(cors());
-
-// const port = process.env.PORT || 8000
-
-// app.get('/',(req,res)=> res.send('Hello world'))
-// app.use('/api/brand',brandRoute)
-// app.use('/api/product',productRoute)
-// app.use('/api/category',categoryRoute)
-// app.use('/api/user',userRoute)
-
-
-
-
-
-
-// app.listen(port, ()=> console.log(`example app listening on port ${port}`))
+       } catch (error) {
+           console.error('Fatal error during database sync or server start:', error);
+           process.exit(1);
+       }
+   })();
+   

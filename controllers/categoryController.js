@@ -1,256 +1,147 @@
-const Category = require('../models/categoryModel');
-const createCategory = async (req, res) => {
-    const { name } = req.body;
-    
-    try {
-        // Validate required fields
-        if (!name?.trim()) {
-            return res.status(400).send({
-                success: false,
-                error: "Category name is required (2-30 characters)"
-            });
-        }
+const Category = require('../models/categoryModel'); // Import your Sequelize Category model
+const path = require('path');
+const fs = require('fs'); // For file system operations
 
-        // Length validation
-        if (name.trim().length < 2 || name.trim().length > 30) {
-            return res.status(400).send({
-                success: false,
-                error: "Category name must be 2-30 characters"
-            });
-        }
+const UPLOADS_DIR = path.join(__dirname, '../uploads');
 
-        const newCategory = await Category.create({ 
-            name: name.trim(),
-            is_active: true
-        });
-
-        res.status(201).send({
-            message: 'Category created successfully',
-            success: true,
-            category: newCategory
-        });
-
-    } catch (error) {
-        console.error("Error creating category:", error);
-        
-        // Handle known errors
-        if (error.name === 'SequelizeUniqueConstraintError' || 
-            error.message.includes('already exists')) {
-            return res.status(409).send({
-                success: false,
-                error: "Category name already exists"
-            });
-        }
-        
-        if (error.name === 'SequelizeValidationError') {
-            return res.status(400).send({
-                success: false,
-                error: error.errors.map(e => e.message).join(', ')
-            });
-        }
-
-        // Fallback for unknown errors
-        res.status(500).send({
-            success: false,
-            error: error.message || "Failed to create category"
+// Helper to delete a file
+const deleteFile = (filename) => {
+    if (filename) {
+        const filePath = path.join(UPLOADS_DIR, filename);
+        fs.unlink(filePath, (err) => {
+            if (err) console.error(`Failed to delete old file: ${filePath}`, err);
+            else console.log(`Old file deleted: ${filePath}`);
         });
     }
 };
 
-const getAllCategories = async (req, res) => {
+// @desc    Create a new Category
+// @route   POST /api/category/create
+// @access  Private (auth required)
+exports.createCategory = async (req, res) => {
     try {
-        const includeInactive = req.query.includeInactive === 'true';
-        
-        const findOptions = {
-            order: [['created_at', 'DESC']]
-        };
-        
-        if (!includeInactive) {
-            findOptions.where = { is_active: true };
+        const { name, description } = req.body;
+        const imageFilename = req.file ? req.file.filename : null;
+
+        if (!name) {
+            if (imageFilename) deleteFile(imageFilename);
+            return res.status(400).json({ message: 'Category name is required.' });
         }
-        
-        const categories = await Category.findAll(findOptions);
-        
-        res.status(200).send({
-            success: true,
-            categories: categories,
-            count: categories.length
+
+        const category = await Category.create({
+            name,
+            description,
+            image: imageFilename
         });
 
+        res.status(201).json({ message: 'Category created successfully', category });
+
     } catch (error) {
-        console.error("Error fetching categories:", error);
-        res.status(500).send({
-            success: false,
-            error: "Failed to fetch categories"
-        });
+        console.error('Error creating category:', error);
+        if (req.file && req.file.filename) {
+            deleteFile(req.file.filename);
+        }
+        res.status(500).json({ message: 'Server error creating category.', error: error.message });
     }
 };
 
-const getCategoryByID = async (req, res) => {
+// @desc    Get all Categories
+// @route   GET /api/category/getAllCategories
+// @access  Public
+exports.getAllCategories = async (req, res) => {
     try {
-        const category = await Category.findByPk(req.params.id);
-        
+        const categories = await Category.findAll();
+        res.status(200).json({ message: 'Categories retrieved successfully', count: categories.length, categories });
+    } catch (error) {
+        console.error('Error fetching categories:', error);
+        res.status(500).json({ message: 'Server error fetching categories.', error: error.message });
+    }
+};
+
+// @desc    Get Category by ID
+// @route   GET /api/category/getCategoryByID/:id
+// @access  Public
+exports.getCategoryByID = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const category = await Category.findByPk(id);
+
         if (!category) {
-            return res.status(404).send({
-                success: false,
-                error: "Category not found"
-            });
+            return res.status(404).json({ message: 'Category not found.' });
         }
 
-        res.status(200).send({
-            success: true,
-            category: category
-        });
-
+        res.status(200).json({ message: 'Category retrieved successfully', category });
     } catch (error) {
-        console.error("Error fetching category:", error);
-        res.status(500).send({
-            success: false,
-            error: "Failed to fetch category"
-        });
+        console.error('Error fetching category by ID:', error);
+        res.status(500).json({ message: 'Server error fetching category.', error: error.message });
     }
 };
 
-const updateCategory = async (req, res) => {
-    const { name, is_active } = req.body;
-
+// @desc    Update Category
+// @route   PUT /api/category/updateCategory/:id
+// @access  Private (auth required)
+exports.updateCategory = async (req, res) => {
     try {
-        if (!name || name.trim() === '') {
-            return res.status(400).send({
-                success: false,
-                error: "Category name is required"
-            });
-        }
+        const { id } = req.params;
+        const { name, description } = req.body;
+        const imageFilename = req.file ? req.file.filename : null;
 
-        const category = await Category.findByPk(req.params.id);
-        
+        const category = await Category.findByPk(id);
+
         if (!category) {
-            return res.status(404).send({
-                success: false,
-                error: "Category not found"
-            });
+            if (imageFilename) deleteFile(imageFilename);
+            return res.status(404).json({ message: 'Category not found.' });
         }
 
-        const updatedCategory = await category.update({ 
-            name: name.trim(),
-            is_active: is_active !== undefined ? is_active : category.is_active
-        });
-        
-        res.status(200).send({
-            success: true,
-            message: "Category updated successfully",
-            category: updatedCategory
-        });
+        const oldImage = category.image;
+
+        category.name = name !== undefined ? name : category.name;
+        category.description = description !== undefined ? description : category.description;
+        if (imageFilename) {
+            category.image = imageFilename;
+        }
+
+        await category.save();
+
+        if (imageFilename && oldImage && oldImage !== imageFilename) {
+            deleteFile(oldImage);
+        }
+
+        res.status(200).json({ message: 'Category updated successfully', category });
 
     } catch (error) {
-        console.error("Error updating category:", error);
-        
-        if (error.name === 'SequelizeUniqueConstraintError') {
-            return res.status(409).send({
-                success: false,
-                error: "Category name already exists"
-            });
+        console.error('Error updating category:', error);
+        if (req.file && req.file.filename) {
+            deleteFile(req.file.filename);
         }
-        
-        res.status(500).send({
-            success: false,
-            error: "Failed to update category"
-        });
+        res.status(500).json({ message: 'Server error updating category.', error: error.message });
     }
 };
 
-const deleteCategory = async (req, res) => {
+// @desc    Delete Category
+// @route   DELETE /api/category/deleteCategory/:id
+// @access  Private (auth required)
+exports.deleteCategory = async (req, res) => {
     try {
-        const category = await Category.findByPk(req.params.id);
-        
+        const { id } = req.params;
+        const category = await Category.findByPk(id);
+
         if (!category) {
-            return res.status(404).send({
-                success: false,
-                error: "Category not found"
-            });
+            return res.status(404).json({ message: 'Category not found.' });
         }
+
+        const deletedImage = category.image;
 
         await category.destroy();
-        
-        res.status(200).send({
-            success: true,
-            message: "Category deleted successfully"
-        });
+
+        if (deletedImage) {
+            deleteFile(deletedImage);
+        }
+
+        res.status(200).json({ message: 'Category deleted successfully' });
 
     } catch (error) {
-        console.error("Error deleting category:", error);
-        res.status(500).send({
-            success: false,
-            error: "Failed to delete category"
-        });
+        console.error('Error deleting category:', error);
+        res.status(500).json({ message: 'Server error deleting category.', error: error.message });
     }
 };
-
-module.exports = {
-    createCategory,
-    getAllCategories,
-    getCategoryByID,
-    updateCategory,
-    deleteCategory
-};
-
-
-
-
-// const Category =require('../models/categoryModel');
-// const createCategory = async(req,res)=>{
-//     const {name} = req.body
-// try{
-//     const newCategory= await Category.create({name})
-//         // newBrand.save();
-//     res.status(200).send({message:'category Created Succesfully',success:true})
-// }catch(error){
-//     res.status(500).send({error:error})
-// }
-// }
-
-// const getAllCategories =async(req,res)=>{
-//     try{
-//         const categories = await Category.findAll()
-//         res.status(200).send({categories:categories,success:true})
-//         // res.status(200).send({message :'success'})
-//     }catch(error){
-//         res.status(500).send({error:error})
-//     }
-// }
-
-
-// const getCategoryByID =(req,res)=>{
-//     try{
-//         res.status(200).send({message :'success'})
-//     }catch(error){
-//         res.status(500).send({error:error})
-//     }
-// }
-
-// const updateCategory =(req,res)=>{
-//     try{
-//         res.status(200).send({message :'success'})
-//     }catch(error){
-//         res.status(500).send({error:error})
-//     }
-// }
-
-// const deleteCategory =(req,res)=>{
-//     try{
-//         res.status(200).send({message :'success'})
-//     }catch(error){
-//         res.status(500).send({error:error})
-//     }
-// }
-
-// module.exports = {
-//     createCategory,
-//     deleteCategory,
-//     updateCategory,
-//     getAllCategories,
-//     getCategoryByID
-// }
-
-
-

@@ -1,16 +1,13 @@
 const express = require('express');
-const CategoryController = require('../controllers/CategoryController');
 const router = express.Router();
-const auth = require('../middleware/auth');
+const categoryController = require('../controllers/categoryController');
+const authMiddleware = require('../middleware/auth')
+const { uploadCategory } = require('../middleware/multer'); // Destructure uploadCategory from multer
 
-
-
-router.post('/create', auth,CategoryController.createCategory)
-router.get('/getAllCategories', CategoryController.getAllCategories)
-router.get('/getCategoryByID/:id', CategoryController.getCategoryByID)
-router.put('/updateCategory', auth,CategoryController.updateCategory)
-router.delete('/deleteCategory/:id', auth, CategoryController.deleteCategory)
+router.post('/create', authMiddleware.auth, uploadCategory.single('image'), categoryController.createCategory);
+router.get('/getAllCategories', categoryController.getAllCategories);
+router.get('/getCategoryByID/:id', categoryController.getCategoryByID);
+router.put('/updateCategory/:id', authMiddleware.auth, uploadCategory.single('image'), categoryController.updateCategory);
+router.delete('/deleteCategory/:id', authMiddleware.auth, categoryController.deleteCategory); 
 
 module.exports = router;
-
-

@@ -1,5 +1,5 @@
 const { DataTypes } = require('sequelize');
-const sequelize = require('../config/db');
+const { sequelize } = require('../config/db'); // Import the sequelize instance
 
 const User = sequelize.define('User', {
     id: {
@@ -7,9 +7,10 @@ const User = sequelize.define('User', {
         primaryKey: true,
         autoIncrement: true
     },
-    name: {
-        type: DataTypes.STRING(30),
+    username: {
+        type: DataTypes.STRING(50),
         allowNull: false,
+        unique: true
     },
     email: {
         type: DataTypes.STRING(100),
@@ -19,60 +20,22 @@ const User = sequelize.define('User', {
             isEmail: true
         }
     },
-    password: {
+    password: { // Store hashed password here
         type: DataTypes.STRING,
         allowNull: false
     },
-    isAdmin: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false,
-        allowNull: false
-    }
-}, {
-    tableName: 'User',
-    timestamps: true,
-    defaultScope: {
-        attributes: { exclude: ['password'] }
+    role: { // Example: 'user', 'admin' - This column was causing previous error
+        type: DataTypes.STRING(20),
+        defaultValue: 'user'
     },
-    scopes: {
-        withPassword: {
-            attributes: { include: ['password'] }
-        }
-    }
+    // Sequelize automatically adds createdAt and updatedAt if timestamps are true
+}, {
+    tableName: 'Users', // Explicitly set table name (plural is common)
+    timestamps: true     // This will add createdAt and updatedAt columns automatically
 });
 
+// Define associations if any other models relate to User (e.g., if User creates Product)
+// User.hasMany(Product, { foreignKey: 'createdBy', as: 'CreatedProducts' }); // Need to import Product first
+// Product.belongsTo(User, { foreignKey: 'createdBy', as: 'Creator' });
+
 module.exports = User;
-// const { DataTypes } = require('sequelize');
-// const sequelize = require('../config/db');
-
-// const User = sequelize.define('User', {
-//   username: {
-//     type: DataTypes.STRING,
-//     allowNull: false,
-//     unique: true
-//   },
-//   email: {
-//     type: DataTypes.STRING,
-//     allowNull: false,
-//     unique: true,
-//     validate: {
-//       isEmail: true
-//     }
-//   },
-//   password: {
-//     type: DataTypes.STRING,
-//     allowNull: false
-//   },
-//   isAdmin: {
-//     type: DataTypes.BOOLEAN,
-//     defaultValue: false
-//   }
-// }, {
-//   scopes: {
-//     withPassword: {
-//       attributes: { include: ['password'] }
-//     }
-//   }
-// });
-
-// module.exports = User;

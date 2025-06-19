@@ -1,70 +1,32 @@
+// ecommerce_backend/models/categoryModel.js
 const { DataTypes } = require('sequelize');
-const sequelize = require('../config/db');
+const { sequelize } = require('../config/db'); // Import the sequelize instance
 
 const Category = sequelize.define('Category', {
     id: {
         type: DataTypes.INTEGER,
         primaryKey: true,
-        autoIncrement: true,
-        allowNull: false
+        autoIncrement: true
     },
     name: {
-        type: DataTypes.STRING(30),
+        type: DataTypes.STRING(50),
         allowNull: false,
-        unique: true,
-        validate: {
-            notEmpty: {
-                msg: 'Category name cannot be empty'
-            },
-            len: {
-                args: [2, 30],
-                msg: 'Category name must be between 2 and 30 characters'
-            }
-        }
+        unique: true // Category names should probably be unique
     },
-    is_active: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: true,
-        allowNull: false
+    description: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    image: { // Stores the filename of the uploaded category image
+        type: DataTypes.STRING,
+        allowNull: true
     }
 }, {
-    tableName: 'categories',
-    timestamps: true,
-    createdAt: 'created_at',
-    updatedAt: 'updated_at',
-    deletedAt: 'deleted_at',
-    paranoid: true,
-    underscored: true,
-    defaultScope: {
-        where: { is_active: true }
-    }
+    tableName: 'Categories', // Explicitly set table name
+    timestamps: true         // Adds createdAt and updatedAt columns automatically
 });
 
-module.exports = {Category};
+// Define associations: A Category can have many Products (defined in app.js for consistency)
+// Category.hasMany(Product, { foreignKey: 'categoryId', as: 'Products' });
 
-
-
-
-
-
-
-// const { DataTypes } = require('sequelize');
-// const sequelize = require('../config/db');
-
-// const Category = sequelize.define('Category', {
-//     id: {
-//         type: DataTypes.INTEGER,
-//         primaryKey: true,
-//         autoIncrement: true
-//     },
-//     name: {
-//         type: DataTypes.STRING(30),
-//         allowNull: false,
-//         unique: true
-//     }
-// }, {
-//     tableName: 'categories', 
-//     timestamps: true 
-// });
-
-// module.exports = Category;
+module.exports = Category;
