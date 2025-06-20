@@ -1,5 +1,5 @@
+// src/config/db.js
 const { Sequelize } = require('sequelize');
-const mongoose = require('mongoose');
 require('dotenv').config(); // Load environment variables
 
 // --- MySQL Connection (Sequelize) ---
@@ -28,40 +28,18 @@ const connectMySQL = async () => {
     }
 };
 
-// --- MongoDB Connection (Mongoose) ---
-const connectMongoDB = async () => {
-    try {
-        const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/ecommerce_db';
-        await mongoose.connect(mongoURI, {
-            // useNewUrlParser: true, // Deprecated in Mongoose 6+
-            // useUnifiedTopology: true, // Deprecated in Mongoose 6+
-        });
-        console.log("MongoDB connected successfully");
-        try {
-            const url = new URL(mongoURI);
-            console.log(`MongoDB running on host: ${url.hostname}, port: ${url.port || '27017 (default)'}`);
-        } catch (parseError) {
-            console.warn("Could not parse MongoDB URI for detailed host/port info.");
-        }
-    } catch (error) {
-        console.error("Unable to connect to MongoDB:", error);
-        process.exit(1); // Exit on critical connection failure
-    }
-};
-
-// --- Combined Database Initialization ---
+// --- Database Initialization ---
 const initializeDatabases = async () => {
-    console.log("Attempting to connect to databases...");
+    console.log("Attempting to connect to MySQL database...");
     await connectMySQL();
-    await connectMongoDB();
-    console.log("All database connections established.");
+    console.log("MySQL database connection established.");
 };
 
 // Immediately invoke connection function when this module is imported
 initializeDatabases();
 
-// Export the instances
+// Export the sequelize instance
 module.exports = {
     sequelize,
-    mongoose
+    // Removed mongoose as you are not using MongoDB
 };

@@ -1,57 +1,63 @@
-   const express = require('express');
-   const app = express();
-   const cors = require('cors');
-   const path = require('path');
-   require('dotenv').config(); // Ensure dotenv is loaded at the very top
+// app.js
 
-   const { sequelize, mongoose } = require('./config/db');
+const express = require('express');
+const app = express();
+const cors = require('cors');
+const path = require('path');
+require('dotenv').config(); // Ensure dotenv is loaded at the very top
 
-   const User = require('./models/userModel');
-   const Brand = require('./models/brandModel');
-   const Category = require('./models/categoryModel');
-   const Product = require('./models/productModel');
+// Only destructure sequelize, as mongoose is not used
+const { sequelize } = require('./config/db');
 
-   Brand.hasMany(Product, { foreignKey: 'brandId', as: 'Products' });
-   Category.hasMany(Product, { foreignKey: 'categoryId', as: 'Products' });
+// Your Sequelize models - these are fine
+const User = require('./models/userModel');
+const Brand = require('./models/brandModel');
+const Category = require('./models/categoryModel');
+const Product = require('./models/productModel');
 
-   app.use(express.json());
-   app.use(express.urlencoded({ extended: true }));
-   app.use(cors({
-       origin: ['http://localhost:3000', 'http://localhost:3001'],
-       credentials: true,
-   }));
+Brand.hasMany(Product, { foreignKey: 'brandId', as: 'Products' });
+Category.hasMany(Product, { foreignKey: 'categoryId', as: 'Products' });
 
-   app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-   const brandRoute = require('./routes/brandRoute');
-   app.use('/api/brand', brandRoute);
+// *** CRITICAL FIX FOR CORS ***
+// Add your frontend's actual origin: http://localhost:5173
+app.use(cors({
+    origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173'],
+    credentials: true,
+}));
 
-   const productRoute = require('./routes/productRoute');
-   app.use('/api/product', productRoute);
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-   const categoryRoute = require('./routes/categoryRoute');
-   app.use('/api/category', categoryRoute);
+// Your routes
+const brandRoute = require('./routes/brandRoute');
+app.use('/api/brand', brandRoute);
 
-   const userRoute = require('./routes/userRoute');
-   app.use('/api/user', userRoute);
+const productRoute = require('./routes/productRoute');
+app.use('/api/product', productRoute);
 
-   (async () => {
-       try {
-           // *** DANGER: Setting { force: true } will DROP (delete) existing tables and recreate them.
-           // *** This will lead to DATA LOSS in your MySQL database for these models.
-           // *** ONLY USE THIS IN DEVELOPMENT WHEN YOU ARE OK WITH LOSING DATA.
-           // *** AFTER RUNNING ONCE SUCCESSFULLY, CHANGE IT BACK TO { alter: false } OR { force: false }
-           await sequelize.sync({ force: false }); // DANGEROUS TEMPORARY CHANGE HERE
-           console.log('MySQL models synchronized (tables dropped and recreated).');
+const categoryRoute = require('./routes/categoryRoute');
+app.use('/api/category', categoryRoute);
 
-           const PORT = process.env.PORT || 7001;
-           app.listen(PORT, () => {
-               console.log(`Server running on port ${PORT}`);
-           });
+const userRoute = require('./routes/userRoute');
+app.use('/api/user', userRoute);
 
-       } catch (error) {
-           console.error('Fatal error during database sync or server start:', error);
-           process.exit(1);
-       }
-   })();
-   
+(async () => {
+    try {
+        // Ensure you have connected to the database before syncing models
+        // The `initializeDatabases()` in db.js handles the connection when imported.
+        // sequelize.sync will ensure your tables are created/updated based on your models.
+        await sequelize.sync({ force: false });
+        console.log('MySQL models synchronized.'); // Changed message to reflect force:false
+
+        const PORT = process.env.PORT || 7001;
+        app.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+        });
+
+    } catch (error) {
+        console.error('Fatal error during database sync or server start:', error);
+        process.exit(1);
+    }
+})();
